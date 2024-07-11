@@ -26,19 +26,20 @@ function playLoop(file: string) {
     const filePath = path.resolve(__dirname, '..', 'files', file)
     const readable = fs.createReadStream(filePath)
 
-    let bitRate = 128000
-    try {
-        const fileData = ffprobeSync(filePath)
-        console.log('fileData', fileData)
-        const parsedBitRate = fileData.format.bit_rate
-        if (parsedBitRate)
-            bitRate = parseInt(parsedBitRate)
-        console.log('bitRate', bitRate)
-    } catch (error) {
-        console.error('ffprobe error', error)
-    }
+    const fixedBitRate = 128000
+    // let bitRate = 128000
+    // try {
+    //     const fileData = ffprobeSync(filePath)
+    //     console.log('fileData', fileData)
+    //     const parsedBitRate = fileData.format.bit_rate
+    //     if (parsedBitRate)
+    //         bitRate = parseInt(parsedBitRate)
+    //     console.log('bitRate', bitRate)
+    // } catch (error) {
+    //     console.error('ffprobe error', error)
+    // }
     
-    const throttle = new Throttle(bitRate / 8)
+    const throttle = new Throttle(fixedBitRate / 8)
         .on('data', (chunk) => {
             broadcast(chunk)
         })
@@ -48,16 +49,27 @@ function playLoop(file: string) {
             playLoop(nextFile)
         })
     
-    readable.pipe(throttle)
+    // readable.pipe(throttle)
     
-    // ffmpeg(readable)
-    //     .audioCodec('libmp3lame')
-    //     .audioBitrate('128k')  // re-encoding to a consistent bit rate
-    //     .format('mp3')
-    //     .on('error', (err) => {
-    //         console.error('ffmpeg error:', err)
-    //     })
-    //     .pipe(throttle)   
+    ffmpeg(readable)
+        .audioCodec('libmp3lame')
+        .format('mp3')
+        // All songs must have the same bit rate, frequency and channels
+        .audioBitrate(fixedBitRate / 1000)
+        .audioFrequency(44100)
+        .audioChannels(2)
+        // .outputOptions([
+        //     '-c:a libmp3lame',    // Ensure using MP3 encoder
+        //     '-b:a 128k',          // Set bitrate to 128k
+        //     '-f mp3',             // Output format
+        //     '-movflags frag_keyframe+empty_moov', // For smooth streaming
+        //     '-ar 44100',          // Set audio rate to 44100 Hz
+        //     '-ac 2',              // Set audio channels to stereo
+        // ])
+        .on('error', (err) => {
+            console.error('ffmpeg error:', err)
+        })
+        .pipe(throttle)
 }
 
 function broadcast(chunk: any) {
