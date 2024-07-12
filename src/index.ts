@@ -14,11 +14,9 @@ dotenv.config()
 ffmpeg.setFfmpegPath(ffmpegStatic!)
 ffprobe.path = ffprobeStatic.path
 
-const files = fs.readdirSync(path.resolve(__dirname, '..', 'files'))
+console.log('Available files', fs.readdirSync(path.resolve(__dirname, '..', 'files')))
 
-console.log(files)
-
-let currentSong = files[0]
+let currentSong = getRandomFile()
 const writables: Writable[] = []
 
 function playLoop(file: string) {
@@ -44,9 +42,11 @@ function playLoop(file: string) {
             broadcast(chunk)
         })
         .on('end', () => {
-            const index = files.indexOf(file)
-            const nextFile = files[(index + 1) % files.length]
-            playLoop(nextFile)
+            let nextSong
+            do {
+                nextSong = getRandomFile()
+            } while (nextSong === file)
+            playLoop(nextSong)
         })
     
     // readable.pipe(throttle)
@@ -69,7 +69,16 @@ function playLoop(file: string) {
         .on('error', (err) => {
             console.error('ffmpeg error:', err)
         })
+        .on('progress', (progress) => {
+            // console.log('Processing:', progress)
+        })
         .pipe(throttle)
+}
+
+function getRandomFile() {
+    const files = fs.readdirSync(path.resolve(__dirname, '..', 'files'))
+    const randomIndex = Math.floor(Math.random() * files.length)
+    return files[randomIndex]
 }
 
 function broadcast(chunk: any) {
@@ -105,11 +114,14 @@ app.get('/stream', (req, res) => {
 
     writables.push(writable)
 
+    console.log(`Listener connected. Ip: ${req.ip} Total listeners: ${writables.length}`)
+
     req.on('close', () => {
         const index = writables.indexOf(writable)
         if (index > -1) {
             writables.splice(index, 1)
         }
+        console.log(`Listener disconnected. Ip: ${req.ip} Total listeners: ${writables.length}`)
     })
 })
 
