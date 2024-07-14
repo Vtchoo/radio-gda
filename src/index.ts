@@ -114,14 +114,14 @@ app.get('/stream', (req, res) => {
 
     writables.push(writable)
 
-    console.log(`Listener connected. Ip: ${req.ip} Total listeners: ${writables.length}`)
+    // console.log(`Listener connected. Ip: ${req.ip} Total listeners: ${writables.length}`)
 
     req.on('close', () => {
         const index = writables.indexOf(writable)
         if (index > -1) {
             writables.splice(index, 1)
         }
-        console.log(`Listener disconnected. Ip: ${req.ip} Total listeners: ${writables.length}`)
+        // console.log(`Listener disconnected. Ip: ${req.ip} Total listeners: ${writables.length}`)
     })
 })
 
