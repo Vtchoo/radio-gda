@@ -19,12 +19,17 @@ console.log('Available files', fs.readdirSync(path.resolve(__dirname, '..', 'fil
 let currentSong = getRandomFile()
 const writables: Writable[] = []
 
+// Buffer to store up to 30 seconds of audio data
+const buffer: Buffer[] = []
+const bufferDuration = 30 // 30 seconds in milliseconds
+const fixedBitRate = 128000
+let bufferSize = (bufferDuration * fixedBitRate) / 8
+
 function playLoop(file: string) {
     console.log('playLoop', file)
     const filePath = path.resolve(__dirname, '..', 'files', file)
     const readable = fs.createReadStream(filePath)
 
-    const fixedBitRate = 128000
     // let bitRate = 128000
     // try {
     //     const fileData = ffprobeSync(filePath)
@@ -39,6 +44,7 @@ function playLoop(file: string) {
     
     const throttle = new Throttle(fixedBitRate / 8)
         .on('data', (chunk) => {
+            addToBuffer(chunk)
             broadcast(chunk)
         })
         .on('end', () => {
@@ -81,6 +87,13 @@ function getRandomFile() {
     return files[randomIndex]
 }
 
+function addToBuffer(chunk: Buffer) {
+    buffer.push(chunk)
+    while (Buffer.concat(buffer).length > bufferSize) {
+        buffer.shift()
+    }
+}
+
 function broadcast(chunk: any) {
     for (const writable of writables) {
         writable.write(chunk)
@@ -111,6 +124,9 @@ app.get('/stream', (req, res) => {
     })
 
     writable.pipe(res)
+    
+    for (const chunk of buffer) 
+        writable.write(chunk)
 
     writables.push(writable)
 
